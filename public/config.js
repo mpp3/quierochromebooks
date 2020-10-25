@@ -35,7 +35,8 @@ const frameConfig = {
     width: 1920,
     height: 1080,
     color: light,
-    outerColor: dark
+    outerColor: dark,
+    assets: ["chromebook.png"]
 };
 
 export {

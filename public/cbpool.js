@@ -308,13 +308,16 @@ function createLoginWindow(app, frame) {
         displayClose: false
     }).addTo(frame.stage).center();
 
+    let chromebook = asset("chromebook.png");
+    chromebook.addTo(loginWindow).center();
+
     let loginButton = new Button({
-        label: new Label({ text: "LOGIN\ncon Google", size: 60, align: "center", color: light }),
-        width: 400,
-        height: 300,
-        backgroundColor: dark,
+        label: new Label({ text: "LOGIN", size: 220, bold: true, align: "center", color: dark }),
+        width: 950,
+        height: 540,
+        backgroundColor: light,
         rollBackgroundColor: orange
-    }).addTo(loginWindow).center();
+    }).addTo(loginWindow).loc(-475, -459);
 
     loginButton.on("click", () => app.login());
 
@@ -327,6 +330,13 @@ function createLoginWindow(app, frame) {
     });
     loginTip.addTo(loginWindow).hide();
 
+    let sidebar = pizzazz.makePattern({
+        type: "stripes",
+        cols: 120,
+        colors: series("rgba(253,0,5,0.7)", "rgba(204,153,51,0.7)", "rgba(0,105,61,0.7)"),
+        interval: 0.3
+    }).addTo(loginWindow).rot(90).pos({x:0, horizontal: LEFT});
+    
     return loginWindow;
 }
 
