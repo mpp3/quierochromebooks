@@ -106,9 +106,15 @@ class PoolRule {
 }
 
 const poolRules = [
-    new PoolRule({ number: 31 }),
+    new PoolRule({ number: 29 }),
     new PoolRule({ from: new Date(2020, 9, 12), to: new Date(2020, 9, 12), number: 0 }),
-    new PoolRule({ from: new Date(2020, 10, 2), to: new Date(2020, 10, 2), number: 0 })
+    new PoolRule({ from: new Date(2020, 10, 2), to: new Date(2020, 10, 2), number: 0 }),
+    new PoolRule({ from: new Date(2020, 10, 9), to: new Date(2020, 10, 9), number: 0 }),
+    new PoolRule({ from: new Date(2020, 11, 7), to: new Date(2020, 11, 8), number: 0 }),
+    new PoolRule({ from: new Date(2020, 11, 23), to: new Date(2021, 0, 8), number: 0 }),
+    new PoolRule({ from: new Date(2021, 1, 19), to: new Date(2021, 1, 22), number: 0 }),
+    new PoolRule({ from: new Date(2021, 2, 19), to: new Date(2021, 2, 19), number: 0 }),
+    new PoolRule({ from: new Date(2021, 2, 26), to: new Date(2021, 3, 5), number: 0 })
 ];
 
 function poolSize(rules, day, hour, maxPoolSize) {
@@ -200,6 +206,7 @@ function showReserveTip(target) {
 }
 
 function userHasAccess(userCredentials) {
+
     if (userCredentials.email === "manuelperezpinar@gmail.com") {
         return false;
     }
@@ -221,7 +228,8 @@ frame.on("ready", function () {
         firebase.database(),
         poolRules,
         getFirstDayOfCurrentWeek(),
-        getDaysFrom(getFirstDayOfCurrentWeek(), 5)
+        getDaysFrom(getFirstDayOfCurrentWeek(), 5),
+        users
     );
 
     var ui = new UI(app, frame, config.appConfig);
@@ -238,7 +246,7 @@ class UI {
         this.frame = frame;
         this.config = config;
         this.loginWindow = createLoginWindow(this.app, this.frame);
-        this.loginWindow.show();
+        this.loginWindow.window.show();
         this.mainWindow = createMainWindow(this.app, this.frame, this.config);
         this.mainWindow.window.hide();
         this.slotWindow = createSlotWindow(this.app, this.frame);
@@ -266,11 +274,11 @@ class UI {
     }
     changeUser(user) {
         if (user) {
-            this.loginWindow.hide();
+            this.loginWindow.window.hide();
             this.openMainWindow();
         }
         else {
-            this.loginWindow.show();
+            this.loginWindow.window.show();
             this.closeMainWindow();
         }
         this.frame.stage.update();
@@ -296,6 +304,11 @@ class UI {
         this.mainWindow.user.text = "";
         this.frame.stage.update();
     }
+    showLoginFailed(email) {
+        this.loginWindow.tip.text = `Lo siento: ${email} no tiene acceso a la aplicación.\nContacta con mperez@fomento.edu`;
+        this.loginWindow.tip.label.color = red;
+        this.frame.stage.update();
+    }
 }
 
 function createLoginWindow(app, frame) {
@@ -309,35 +322,41 @@ function createLoginWindow(app, frame) {
     }).addTo(frame.stage).center();
 
     let chromebook = asset("chromebook.png");
-    chromebook.addTo(loginWindow).center();
+    chromebook.addTo(loginWindow).centerReg().center().mov(0, -50);
+    chromebook.sca(0.8);
 
     let loginButton = new Button({
         label: new Label({ text: "LOGIN", size: 220, bold: true, align: "center", color: dark }),
-        width: 950,
-        height: 540,
+        width: 755,
+        height: 435,
         backgroundColor: light,
-        rollBackgroundColor: orange
-    }).addTo(loginWindow).loc(-475, -459);
+        rollBackgroundColor: orange,
+        corner: 5
+    }).addTo(loginWindow).loc(-380, -370).mov(0, -50);
 
-    loginButton.on("click", () => app.login());
-
-    let loginTip = new Tip({
-        text: "Bienvenido al servicio de reserva de Chromebooks. Pulsa el botón para empezar.",
-        align: "center",
-        valign: "bottom",
-        outside: false,
-        target: loginWindow
+    loginButton.on("click", () => {
+        loginTip.text = "Bienvenido al servicio de reserva de Chromebooks.\nPulsa en LOGIN para empezar.";
+        loginTip.color = dark;
+        app.login();
     });
-    loginTip.addTo(loginWindow).hide();
-
-    let sidebar = pizzazz.makePattern({
-        type: "stripes",
-        cols: 120,
-        colors: series("rgba(253,0,5,0.7)", "rgba(204,153,51,0.7)", "rgba(0,105,61,0.7)"),
-        interval: 0.3
-    }).addTo(loginWindow).rot(90).pos({x:0, horizontal: LEFT});
     
-    return loginWindow;
+    let loginTip = new Label({
+        text: "Bienvenido al servicio de reserva de Chromebooks.\nPulsa en LOGIN para empezar.",
+        align: "center",
+        color: dark,
+        size: 50
+    });
+
+    loginTip.addTo(loginWindow).pos({y: 50, vertical: BOTTOM});
+    
+    // let sidebar = pizzazz.makePattern({
+    //     type: "stripes",
+    //     cols: 120,
+    //     colors: series("rgba(253,0,5,0.7)", "rgba(204,153,51,0.7)", "rgba(0,105,61,0.7)"),
+    //     interval: 0.3
+    // }).addTo(loginWindow).rot(90).pos({x:0, horizontal: LEFT});
+    
+    return {window: loginWindow, tip: loginTip};
 }
 
 function createMainWindow(app, frame, uiConfig) {
@@ -701,18 +720,22 @@ class NotLoggedIn extends State {
     login() {
         this.app.authBackend.signInWithPopup(authProvider)
             .then((credentials) => {
+                this.app.user = credentials.user;
                 if (credentials.user) {
-                    if (userHasAccess(credentials.user)) {
+                    if (this.app.userHasAccess(credentials.user)) {
                         console.log(`Logged in as ${credentials.user.email}`);
                         this.app.state = new ChooseSlot(this.app);
                     }
                     else {
+                        this.app.ui.showLoginFailed(credentials.user.email);
                         this.app.authBackend.signOut();
+                        this.app.user = null;
                     }
                 }
                 else {
                     console.log("Authentication failed.");
                 }
+                this.app.ui.changeUser(this.app.user);
             });
     }
     logout() {
@@ -739,8 +762,10 @@ class ChooseSlot extends State {
     logout() {
         if (this.app.user) {
             this.app.authBackend.signOut();
+            this.app.user = null;
         }
         this.chosenSlot = null;
+        this.app.ui.changeUser(this.app.user);
         this.app.state = new NotLoggedIn(this.app);
         console.log("State: NotLoggedIn");
         console.log("No user logged in.");
@@ -842,13 +867,14 @@ class EditSlot extends State {
 }
 
 class App {
-    constructor(authBackend, dbBackend, poolRules, startDay, currentDays) {
+    constructor(authBackend, dbBackend, poolRules, startDay, currentDays, usersDb) {
         this.authBackend = authBackend;
         this.dbBackend = dbBackend;
         this.db = {};
         this.poolRules = poolRules;
         this.startDay = startDay;
         this.currentDays = currentDays;
+        this.usersDb = usersDb;
         this.ui = null;
         this.user = null;
         this.state = ((this.user) ?
@@ -862,26 +888,21 @@ class App {
             this.state.syncDb(snapshot.val());
         });
 
-        this.authBackend.onAuthStateChanged(userCredentials => {
-            this.user = userCredentials;
-            this.state = ((this.user) ?
-                new ChooseSlot(this) :
-                new NotLoggedIn(this));
-            this.state.syncDb(this.db);
-            if (this.ui) {
-                this.ui.changeUser(this.user);
-            }
-        });
+        // this.authBackend.onAuthStateChanged(userCredentials => {
+        //     this.user = userCredentials;
+        //     this.state = ((this.user) ?
+        //         new ChooseSlot(this) :
+        //         new NotLoggedIn(this));
+        //     this.state.syncDb(this.db);
+        //     if (this.ui) {
+        //         this.ui.changeUser(this.user);
+        //     }
+        // });
     }
     login() {
         this.state.login();
     }
     logout() {
-        if (this.user) {
-            this.authBackend.signOut();
-            this.user = null;
-        }
-        console.log("No user logged in.");
         this.state.logout();
     }
     gotoToday() {
@@ -910,5 +931,14 @@ class App {
     }
     changeReserveName(id, name) {
         this.state.changeReserveName(id, name);
+    }
+    userHasAccess(userCredentials) {
+        for (let user in users) {
+            if (userCredentials.email === users[user]["email"]) {
+                return true;
+            }
+        }
+        console.log(`User ${userCredentials.email} is not allowed to login.`);
+        return false;
     }
 }

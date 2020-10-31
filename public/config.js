@@ -22,7 +22,7 @@ const appConfig = {
     poolSizeColorScale: {
         0: dark,
         10: red,
-        29: brown,
+        28: brown,
         other: green
     },
     weekDays: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
