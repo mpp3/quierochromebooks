@@ -240,6 +240,12 @@ frame.on("ready", function () {
 
 }); // end of ready
 
+const LoginState = {
+    NOT_TRIED: 1,
+    FAILED: 2,
+    SUCCESS: 3
+};
+
 class UI {
     constructor(app, frame, config) {
         this.app = app;
@@ -252,6 +258,8 @@ class UI {
         this.slotWindow = createSlotWindow(this.app, this.frame);
         this.slotWindow.window.hide();
         this.frame.stage.update();
+        this.lastLoginState = LoginState.NOT_TRIED;
+        this.lastLoginEmail = "";
     }
     syncSlot(slotSnapshot) {
         let day = this.app.chosenSlot.day;
@@ -279,6 +287,7 @@ class UI {
         }
         else {
             this.loginWindow.window.show();
+            this.updateLoginWindow();
             this.closeMainWindow();
         }
         this.frame.stage.update();
@@ -304,10 +313,46 @@ class UI {
         this.mainWindow.user.text = "";
         this.frame.stage.update();
     }
-    showLoginFailed(email) {
-        this.loginWindow.tip.text = `Lo siento: ${email} no tiene acceso a la aplicación.\nContacta con mperez@fomento.edu`;
-        this.loginWindow.tip.label.color = red;
-        this.frame.stage.update();
+    loginSuccess(email) {
+        this.lastLoginState = LoginState.SUCCESS;
+        this.lastLoginEmail = email;
+    }
+    loginFailed(email) {
+        this.lastLoginState = LoginState.FAILED;
+        this.lastLoginEmail = email;
+    }
+    resetLoginState() {
+        this.lastLoginState = LoginState.NOT_TRIED;
+        this.lastLoginEmail = "";
+    }
+    updateLoginWindow() {
+        this.loginWindow.tip.text = loginMessage(this.lastLoginState, this.lastLoginEmail);
+        this.loginWindow.tip.color = loginMessageColor(this.lastLoginState);
+    }
+    // showLoginFailed(email) {
+    //     this.loginWindow.tip.dispose();
+    //     this.loginWindow.tip = createUnauthorizedTip(this.loginWindow.window, email);
+    //     this.frame.stage.update();
+    // }
+}
+
+function loginMessageColor(loginState) {
+    switch (loginState) {
+        case LoginState.FAILED:
+            return red;
+        default:
+            return dark;
+    }
+}
+
+function loginMessage(loginState, loginEmail) {
+    switch (loginState) {
+        case LoginState.NOT_TRIED:
+            return "Pulsa en LOGIN para empezar";
+        case LoginState.SUCCESS:
+            return `Hasta la próxima, ${loginEmail}`;
+        case LoginState.FAILED:
+            return `Usuario no autorizado: ${loginEmail}`;
     }
 }
 
@@ -319,44 +364,32 @@ function createLoginWindow(app, frame) {
         modal: false,
         backdropClose: false,
         displayClose: false
-    }).addTo(frame.stage).center();
-
-    let chromebook = asset("chromebook.png");
-    chromebook.addTo(loginWindow).centerReg().center().mov(0, -50);
-    chromebook.sca(0.8);
+    }).addTo(frame.stage).centerReg().center();
 
     let loginButton = new Button({
-        label: new Label({ text: "LOGIN", size: 220, bold: true, align: "center", color: dark }),
-        width: 755,
-        height: 435,
-        backgroundColor: light,
+        label: new Label({ text: "LOGIN", size: 220, bold: true, align: "center", color: light, rollColor: dark }),
+        width: frame.width * 0.5,
+        height: frame.height * 0.5,
+        backgroundColor: dark,
         rollBackgroundColor: orange,
         corner: 5
-    }).addTo(loginWindow).loc(-380, -370).mov(0, -50);
+    }).addTo(loginWindow).centerReg().center().mov(0, -100);
 
     loginButton.on("click", () => {
-        loginTip.text = "Bienvenido al servicio de reserva de Chromebooks.\nPulsa en LOGIN para empezar.";
-        loginTip.color = dark;
         app.login();
     });
-    
-    let loginTip = new Label({
-        text: "Bienvenido al servicio de reserva de Chromebooks.\nPulsa en LOGIN para empezar.",
-        align: "center",
-        color: dark,
-        size: 50
-    });
 
-    loginTip.addTo(loginWindow).pos({y: 50, vertical: BOTTOM});
-    
-    // let sidebar = pizzazz.makePattern({
-    //     type: "stripes",
-    //     cols: 120,
-    //     colors: series("rgba(253,0,5,0.7)", "rgba(204,153,51,0.7)", "rgba(0,105,61,0.7)"),
-    //     interval: 0.3
-    // }).addTo(loginWindow).rot(90).pos({x:0, horizontal: LEFT});
-    
-    return {window: loginWindow, tip: loginTip};
+    let loginTip = new Label({
+        text: loginMessage(LoginState.NOT_TRIED, ""),
+        align: "center",
+        color: loginMessageColor(LoginState.NOT_TRIED),
+        size: 50,
+        font: "courier",
+        bold: true
+    });
+    loginTip.addTo(loginWindow).pos({ x: 0, horizontal: CENTER, y: 200, vertical: BOTTOM });
+
+    return { window: loginWindow, tip: loginTip };
 }
 
 function createMainWindow(app, frame, uiConfig) {
@@ -421,8 +454,6 @@ function createMainWindow(app, frame, uiConfig) {
         backgroundColor: dark,
         rollBackgroundColor: orange,
         corner: 0,
-        // label: "",
-        // icon: pizzazz.makeIcon("home", light)
     });
     todayButton.on("click", () => app.gotoToday());
 
@@ -567,17 +598,6 @@ function createNameList(app, id, reserve, entry) {
         nameList = null;
     });
 }
-
-// function showReserveTip(target) {
-//     let addReserveTip = new Tip({
-//         text: "Selecciona tu nombre en la lista, y\nmodifica el número de Chromebook que quieres reservar.",
-//         outside: true,
-//         target: target,
-//         valign: "top",
-//         align: "right"
-//     });
-//     addReserveTip.show(0, 4);
-// }
 
 function createSlotWindow(app, frame) {
     let slotEditWindow = new Pane({
@@ -724,10 +744,11 @@ class NotLoggedIn extends State {
                 if (credentials.user) {
                     if (this.app.userHasAccess(credentials.user)) {
                         console.log(`Logged in as ${credentials.user.email}`);
+                        this.app.ui.loginSuccess(this.app.user.email);
                         this.app.state = new ChooseSlot(this.app);
                     }
                     else {
-                        this.app.ui.showLoginFailed(credentials.user.email);
+                        this.app.ui.loginFailed(this.app.user.email);
                         this.app.authBackend.signOut();
                         this.app.user = null;
                     }
