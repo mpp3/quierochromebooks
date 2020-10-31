@@ -31,6 +31,10 @@ function iniciales(email) {
     return "";
 }
 
+function email(iniciales) {
+    return users[iniciales].email;
+}
+
 /**
  * Dates parsing and computing
  */
