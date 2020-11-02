@@ -18,8 +18,9 @@ var names = [];
 firebase.database().ref('/users').on('value', (snapshot) => {
     users = snapshot.val();
     Object.keys(users).forEach((key, value) => {
-        names.push(key);
+        names.push(users[key]["iniciales"]);
     });
+    console.log(names);
 });
 
 function iniciales(email) {
@@ -32,7 +33,12 @@ function iniciales(email) {
 }
 
 function email(iniciales) {
-    return users[iniciales].email;
+    for (let user in users) {
+        if (users[user].iniciales === iniciales) {
+            return users[user].email;
+        }
+    }
+    return "";
 }
 
 /**
@@ -198,27 +204,6 @@ function enableReserveButton(button) {
     button.rollBackgroundColor = orange;
 }
 
-function showReserveTip(target) {
-    let addReserveTip = new Tip({
-        text: "Selecciona tu nombre en la lista, y\nmodifica el número de Chromebook que quieres reservar.",
-        outside: true,
-        target: target,
-        valign: "top",
-        align: "right"
-    });
-    addReserveTip.show(0, 4);
-}
-
-function userHasAccess(userCredentials) {
-
-    if (userCredentials.email === "manuelperezpinar@gmail.com") {
-        return false;
-    }
-    else {
-        return true;
-    }
-}
-
 var frame = new Frame(config.frameConfig);
 frame.on("ready", function () {
     zog("ready from ZIM Frame");
@@ -333,11 +318,6 @@ class UI {
         this.loginWindow.tip.text = loginMessage(this.lastLoginState, this.lastLoginEmail);
         this.loginWindow.tip.color = loginMessageColor(this.lastLoginState);
     }
-    // showLoginFailed(email) {
-    //     this.loginWindow.tip.dispose();
-    //     this.loginWindow.tip = createUnauthorizedTip(this.loginWindow.window, email);
-    //     this.frame.stage.update();
-    // }
 }
 
 function loginMessageColor(loginState) {
@@ -594,7 +574,7 @@ function createNameList(app, id, reserve, entry) {
     });
     nameList.addTo(entry);
     nameList.loc(1030, -30);
-    nameList.currentValue = reserve.name;
+    nameList.currentValue = iniciales(reserve.name);
     nameList.change(() => {
         entry.getChildAt(0).text = nameList.currentValue;
         app.changeReserveName(id, nameList.currentValue);
@@ -679,7 +659,7 @@ function createReserveRow(app, id, slotSnapshot, day, hour) {
     let reserve = slotSnapshot[id];
 
     let nameBox = new Button({
-        label: new Label({ text: reserve.name, size: 50 }),
+        label: new Label({ text: iniciales(reserve.name), size: 50 }),
         width: 500,
         height: 100,
         color: dark,
@@ -842,7 +822,7 @@ class EditSlot extends State {
             let reserve = new Reserve(
                 this.app.chosenSlot.day,
                 this.app.chosenSlot.hour,
-                iniciales(this.app.user.email),
+                this.app.user.email,
                 spareInSlot(this.app.chosenSlot.reserves, day, hour));
             let id = this.app.dbBackend.ref(`/reserves/${day}/${hour}`).push();
             id.set(reserve);
@@ -863,7 +843,7 @@ class EditSlot extends State {
     changeReserveName(id, name) {
         let slot = this.app.chosenSlot;
         let reserve = slot.reserves[id];
-        reserve.name = name;
+        reserve.name = email(name);
         let updates = {};
         updates[`/reserves/${slot.day}/${slot.hour}/${id}`] = reserve;
         this.app.dbBackend.ref().update(updates);
@@ -912,17 +892,6 @@ class App {
             console.log("Updating local db...");
             this.state.syncDb(snapshot.val());
         });
-
-        // this.authBackend.onAuthStateChanged(userCredentials => {
-        //     this.user = userCredentials;
-        //     this.state = ((this.user) ?
-        //         new ChooseSlot(this) :
-        //         new NotLoggedIn(this));
-        //     this.state.syncDb(this.db);
-        //     if (this.ui) {
-        //         this.ui.changeUser(this.user);
-        //     }
-        // });
     }
     login() {
         this.state.login();
@@ -958,6 +927,7 @@ class App {
         this.state.changeReserveName(id, name);
     }
     userHasAccess(userCredentials) {
+        console.log(users);
         for (let user in users) {
             if (userCredentials.email === users[user]["email"]) {
                 return true;
