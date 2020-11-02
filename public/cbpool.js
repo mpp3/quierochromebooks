@@ -557,6 +557,7 @@ function remakeWeekCalendar(app, uiConfig, hourLabels, days, weekCalendar) {
 }
 
 function createNameList(app, id, reserve, entry) {
+    console.log(reserve);
     let nameList = new List({
         list: names,
         width: 500,
