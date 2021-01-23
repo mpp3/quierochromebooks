@@ -117,6 +117,7 @@ class PoolRule {
 
 const poolRules = [
     new PoolRule({ number: 29 }),
+    new PoolRule({ from: new Date(2021, 1, 1), to: new Date(2021, 5, 30), number: 28}),
     new PoolRule({ from: new Date(2020, 9, 12), to: new Date(2020, 9, 12), number: 0 }),
     new PoolRule({ from: new Date(2020, 10, 2), to: new Date(2020, 10, 2), number: 0 }),
     new PoolRule({ from: new Date(2020, 10, 9), to: new Date(2020, 10, 9), number: 0 }),
@@ -124,7 +125,8 @@ const poolRules = [
     new PoolRule({ from: new Date(2020, 11, 23), to: new Date(2021, 0, 8), number: 0 }),
     new PoolRule({ from: new Date(2021, 1, 19), to: new Date(2021, 1, 22), number: 0 }),
     new PoolRule({ from: new Date(2021, 2, 19), to: new Date(2021, 2, 19), number: 0 }),
-    new PoolRule({ from: new Date(2021, 2, 26), to: new Date(2021, 3, 5), number: 0 })
+    new PoolRule({ from: new Date(2021, 2, 26), to: new Date(2021, 3, 5), number: 0 }),
+    new PoolRule({ from: new Date(2021, 6, 1), to: new Date(2021, 7, 31), number: 0 })
 ];
 
 function poolSize(rules, day, hour, maxPoolSize) {
