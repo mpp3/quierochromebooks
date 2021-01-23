@@ -1,6 +1,18 @@
 {
   "rules": {
-    ".read": "now < 1604962800000",  // 2020-11-10
-    ".write": "now < 1604962800000",  // 2020-11-10
+    "users": {
+      ".read": true,
+      ".write": "auth.token.email == 'mperez@fomento.edu'"
+    },
+    "reserves": {
+      ".read": true,
+      "$day": {
+        "$hour": {
+          "$reserve": {
+            ".write": "root.child('reserves').child($day).child($hour).child($reserve).child('name').val() == auth.token.email || !data.exists() || auth.token.email == 'mperez@fomento.edu'"
+          }
+        }
+      }
+    }
   }
 }
