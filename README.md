@@ -10,6 +10,6 @@ Esta aplicación permite a los profesores reservar cierto número de Chromebooks
 
 La aplicación está implantada en Firebase:
 
-[Quierocromebook](https://quierochromebooks.web.app/)
+[Quierocromebooks](https://quierochromebooks.web.app/)
 
 Solo pueden acceder los usuarios autorizados.
