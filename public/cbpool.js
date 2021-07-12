@@ -20,7 +20,6 @@ firebase.database().ref('/users').on('value', (snapshot) => {
     Object.keys(users).forEach((key, value) => {
         names.push(users[key]["iniciales"]);
     });
-    console.log(names);
 });
 
 function iniciales(email) {
@@ -91,6 +90,26 @@ function getFirstDayOfCurrentWeek() {
     return getFirstDayOfWeekOf(new Date(Date.now()));
 }
 
+function isToday(shortDateString) {
+    return shortDateString == toShortDateString(new Date(Date.now()));
+}
+
+function isBeforeToday(shortDateString, appConfig) {
+    let today = new Date(Date.now());
+    let dateToTest = fromShortDateString(shortDateString, appConfig);
+    return (today.valueOf() - dateToTest.valueOf())/(1000*60*60*24) > 1;
+}
+
+function hourFromHourSlotString(hourSlotString) {
+    return parseInt(hourSlotString.match(/(\d+):(\d+) - (\d+):(\d+)/)[1]);
+}
+
+function isBeforeNow(shortDateString, hour, appConfig) {
+    let dateToTest = fromShortDateString(shortDateString, appConfig);
+    dateToTest.setHours(hourFromHourSlotString(hour));
+    return dateToTest.valueOf() < Date.now();
+}
+
 /**
  * Pool size and availability
  */
@@ -123,7 +142,6 @@ firebase.database().ref('/numbers').on('value', snapshot => {
     poolRemoteRules.map(rule => {
         poolRules.push(new PoolRule(rule));
     });
-    console.log(poolRules);
 });
 
 function poolSize(rules, day, hour, maxPoolSize) {
@@ -171,7 +189,10 @@ class Reserve {
     }
 };
 
-function poolSizeColor(poolSize, colorScale) {
+function poolSizeColor(day, hour, poolSize, colorScale) {
+    if (isBeforeNow(day, hour, config.appConfig)) {
+        return dark;
+    } 
     for (let size in colorScale) {
         if (size !== "other" && poolSize <= parseInt(size)) {
             return colorScale[size];
@@ -181,19 +202,23 @@ function poolSizeColor(poolSize, colorScale) {
 }
 
 function updateReserveButton(button, slotSnapshot, day, hour) {
-    if (spareInSlot(slotSnapshot, day, hour) > 0) {
+    if (isBeforeNow(day, hour, config.appConfig)) {
+        disableReserveButton(button, true);
+    }
+    else if (spareInSlot(slotSnapshot, day, hour) > 0) {
         enableReserveButton(button);
     }
     else {
-        disableReserveButton(button);
+        disableReserveButton(button, false);
     }
 }
 
-function disableReserveButton(button) {
-    button.text = "No quedan Chromebook";
-    button.backgroundColor = red;
+function disableReserveButton(button, past) {
+    button.text = past ? "Fecha pasada" : "No quedan Chromebook";
+    button.backgroundColor = past ? dark : red;
     button.color = light;
-    button.rollBackgroundColor = red;
+    button.rollBackgroundColor = past ? dark : red;
+    button.enabled = false;
 }
 
 function enableReserveButton(button) {
@@ -201,6 +226,7 @@ function enableReserveButton(button) {
     button.backgroundColor = green;
     button.color = dark;
     button.rollBackgroundColor = orange;
+    button.enabled = true;
 }
 
 var frame = new Frame(config.frameConfig);
@@ -501,17 +527,26 @@ function createDayHourLabels(uiConfig) {
     return dayHourLabels;
 }
 
+function dayHeaderBGColor(day) {
+    return isToday(day) ? red : dark;
+}
+
+function dayHeaderFGColor(day) {
+    return isBeforeToday(day, config.appConfig) ? "black" : light;
+}
+
 function createHeaderRow(days) {
     let headerRow = new Array();
     headerRow[0] = new Rectangle(230, 90, light).centerReg();
+    let bgColor = dark;
     for (let i = 0; i < days.length; ++i) {
         let weekDayLabel = new Label({
             text: days[i],
-            color: light,
+            color: dayHeaderFGColor(days[i]),
             backing: new Rectangle({
                 width: 200,
                 height: 90,
-                color: dark,
+                color: dayHeaderBGColor(days[i]),
                 corner: 5
             }).centerReg(),
             align: "center",
@@ -537,7 +572,7 @@ function createSlotElements(app, uiConfig, hourLabels, days) {
                 width: 200,
                 height: uiConfig.dayHourHeights[i],
                 corner: 5,
-                backgroundColor: poolSizeColor(spare(app.db, day, hour), uiConfig.poolSizeColorScale),
+                backgroundColor: poolSizeColor(day, hour, spare(app.db, day, hour), uiConfig.poolSizeColorScale),
                 rollBackgroundColor: orange
             });
             let slot = new Slot(day, hour, {});
@@ -556,7 +591,6 @@ function remakeWeekCalendar(app, uiConfig, hourLabels, days, weekCalendar) {
 }
 
 function createNameList(app, id, reserve, entry) {
-    console.log(reserve);
     let nameList = new List({
         list: names,
         width: 500,
@@ -667,9 +701,6 @@ function createReserveRow(app, id, slotSnapshot, day, hour) {
         rollBackgroundColor: orange,
         corner: 0
     });
-    nameBox.on("click", () => {
-        createNameList(app, id, reserve, row);
-    });
 
     let deleteButton = new Button({
         icon: pizzazz.makeIcon("close", red),
@@ -680,9 +711,6 @@ function createReserveRow(app, id, slotSnapshot, day, hour) {
         rollBackgroundColor: red,
         rollIcon: pizzazz.makeIcon("close", light)
     });
-    deleteButton.on("click", () => {
-        app.deleteReserve(id);
-    })
 
     let stepper = new Stepper({
         min: 0,
@@ -700,9 +728,24 @@ function createReserveRow(app, id, slotSnapshot, day, hour) {
     });
 
     stepper.currentValue = reserve.number;
+
+    deleteButton.on("click", () => {
+        app.deleteReserve(id);
+    });
+    nameBox.on("click", () => {
+        createNameList(app, id, reserve, row);
+    });
     stepper.on("change", (e) => {
         app.changeReservedNumber(id, stepper.currentValue);
     });
+
+    if (isBeforeNow(day, hour, config.appConfig)) {
+        console.log('Date is in the past. No changes allowed.');
+        deleteButton.enabled = false;
+        nameBox.enabled = false;
+        stepper.enabled = false;
+    }
+
     return row;
 }
 
@@ -927,7 +970,6 @@ class App {
         this.state.changeReserveName(id, name);
     }
     userHasAccess(userCredentials) {
-        console.log(users);
         for (let user in users) {
             if (userCredentials.email === users[user]["email"]) {
                 return true;
