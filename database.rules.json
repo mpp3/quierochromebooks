@@ -4,6 +4,10 @@
       ".read": true,
       ".write": "auth.token.email == 'mperez@fomento.edu'"
     },
+    "numbers": {
+      ".read": true,
+      ".write": "auth.token.email == 'mperez@fomento.edu'"
+    },
     "reserves": {
       ".read": true,
       "$day": {
