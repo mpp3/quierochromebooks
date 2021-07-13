@@ -166,6 +166,17 @@ function spare(db, day, hour) {
     return poolSize(poolRules, day, hour, config.appConfig.maxPoolSize) - totalReserved(db, day, hour);
 }
 
+function reservedByUser(db, email, day, hour) {
+    let reserved = 0;
+    if (db && db[day] && db[day][hour]) {
+        for (let id in db[day][hour]) {
+            if (db[day][hour][id].name == email) {
+                reserved += db[day][hour][id].number;
+            }
+        }
+    }
+}
+
 function reservedInSlot(slotSnapshot) {
     let total = 0;
     if (slotSnapshot) {
@@ -565,14 +576,16 @@ function createSlotElements(app, uiConfig, hourLabels, days) {
         slotElements[i * (days.length + 1)] = hourLabels[i];
         for (let j = 0; j < days.length; ++j) {
             let day = days[j];
+            let remaining = spare(app.db, day, hour);
+            let myReserved = app.user ? reservedByUser(app.db, app.user.email, day, hour) : 0;
             let slotButton = new Button({
                 label: new Label({
-                    text: spare(app.db, day, hour)
+                    text: remaining
                 }),
                 width: 200,
                 height: uiConfig.dayHourHeights[i],
                 corner: 5,
-                backgroundColor: poolSizeColor(day, hour, spare(app.db, day, hour), uiConfig.poolSizeColorScale),
+                backgroundColor: poolSizeColor(day, hour, remaining, uiConfig.poolSizeColorScale),
                 rollBackgroundColor: orange
             });
             let slot = new Slot(day, hour, {});
